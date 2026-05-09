@@ -1,0 +1,47 @@
+# Homepage runs as a non-default service account so we can grant it the
+# read-only cluster permissions needed for its Kubernetes integration:
+# discovering Ingresses with `gethomepage.dev/*` annotations, reading
+# pod/node metrics for the cluster widgets, etc. Anything more permissive
+# than this would be over-grant.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: homepage
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: homepage
+rules:
+  # Read namespaces, pods, services, nodes for the cluster widget +
+  # service-discovery features.
+  - apiGroups: [""]
+    resources: [namespaces, pods, services, nodes]
+    verbs: [get, list, watch]
+  # Ingress objects carry the gethomepage.dev/* annotations; Homepage
+  # auto-creates entries for any Ingress with gethomepage.dev/enabled: "true".
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses]
+    verbs: [get, list, watch]
+  # Optional but useful — lets the cluster CPU/memory widget pull live
+  # numbers via the metrics-server we get via kube-prometheus-stack.
+  - apiGroups: [metrics.k8s.io]
+    resources: [nodes, pods]
+    verbs: [get, list]
+  # Discover ServiceMonitors / Routes / etc only if you later wire them
+  # in. Harmless to leave out.
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: homepage
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: homepage
+subjects:
+  - kind: ServiceAccount
+    name: homepage
+    namespace: homepage

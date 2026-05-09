@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homepage
+  labels:
+    app.kubernetes.io/name: homepage
+spec:
+  # Two replicas — Homepage is stateless (config in ConfigMap, no PVC),
+  # so this gets us HA. If a worker dies, Traefik still has a healthy
+  # backend to route to.
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: homepage
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: homepage
+      annotations:
+        # Bump this if you ever edit the configmap manually outside git;
+        # forces a rolling restart so pods pick up the new config. With
+        # GitOps + Argo CD the ConfigMap update + pod restart sequence
+        # is automatic on push.
+        configmap-revision: "1"
+    spec:
+      serviceAccountName: homepage
+      containers:
+        - name: homepage
+          image: ghcr.io/gethomepage/homepage:v0.10.5
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            # Allow proxying to backends without same-origin (Homepage
+            # makes status checks against the listed services).
+            - name: HOMEPAGE_ALLOWED_HOSTS
+              value: home.valhalla.lan
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+            - name: logs
+              mountPath: /app/config/logs
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            failureThreshold: 12
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+      volumes:
+        - name: config
+          configMap:
+            name: homepage
+        # Homepage writes per-pod logs under /app/config/logs and the
+        # ConfigMap mount is read-only. Give it an emptyDir so writes
+        # don't fail.
+        - name: logs
+          emptyDir: {}

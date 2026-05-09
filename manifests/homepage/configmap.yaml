@@ -1,0 +1,113 @@
+# Homepage reads its config from /app/config which is the mount point of
+# this ConfigMap. The keys (settings.yaml, services.yaml, …) are the file
+# names Homepage looks for. Editing any of these and pushing to git makes
+# Argo CD update the ConfigMap; Homepage hot-reloads on file change so
+# new entries appear without restarting the pod.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage
+data:
+  settings.yaml: |
+    title: Valhalla
+    headerStyle: clean
+    background:
+      blur: sm
+      saturate: 50
+      brightness: 50
+    theme: dark
+    color: slate
+    layout:
+      Platform:
+        style: row
+        columns: 4
+      Apps:
+        style: row
+        columns: 4
+      Monitoring:
+        style: row
+        columns: 4
+    # Use the Kubernetes integration to auto-discover anything tagged
+    # via gethomepage.dev/* Ingress annotations. Manually-listed entries
+    # below are for things whose Ingress we don't directly control
+    # (Helm charts where annotations would have to go through values).
+    providers: {}
+
+  kubernetes.yaml: |
+    # "cluster" tells Homepage to use the in-cluster ServiceAccount and
+    # discover via the cluster API. Uses the bound ClusterRole defined
+    # in rbac.yaml.
+    mode: cluster
+
+  services.yaml: |
+    # Manual entries for Helm-managed apps whose Ingress annotations
+    # aren't easy to inject via chart values. Kubernetes-native apps
+    # (uptime-kuma, vaultwarden, etc) auto-discover via
+    # gethomepage.dev/* Ingress annotations and don't need entries here.
+    - Platform:
+        - Argo CD:
+            href: https://argocd.valhalla.lan/
+            description: GitOps controller
+            icon: argo-cd
+        - Longhorn:
+            href: http://longhorn.valhalla.lan/
+            description: Replicated block storage
+            icon: longhorn
+        - Grafana:
+            href: https://grafana.valhalla.lan/
+            description: Metrics + dashboards
+            icon: grafana
+        - Prometheus:
+            href: https://grafana.valhalla.lan/explore
+            description: Metrics database (via Grafana Explore)
+            icon: prometheus
+        - Alertmanager:
+            description: Alert routing (kubectl port-forward to access)
+            icon: alertmanager
+
+  widgets.yaml: |
+    # Live cluster summary in the page header
+    - kubernetes:
+        cluster:
+          show: true
+          cpu: true
+          memory: true
+          showLabel: true
+          label: valhalla
+        nodes:
+          show: true
+          cpu: true
+          memory: true
+          showLabel: true
+    - search:
+        provider: duckduckgo
+        target: _blank
+    - datetime:
+        text_size: xl
+        format:
+          timeStyle: short
+          dateStyle: short
+          hourCycle: h23
+
+  bookmarks.yaml: |
+    - Repos:
+        - GitHub:
+            - abbr: GH
+              href: https://github.com/borntoeatt
+        - This repo (k3s-apps):
+            - abbr: KA
+              href: https://github.com/borntoeatt/k3s-apps
+        - Platform repo (k8s-provisioning):
+            - abbr: KP
+              href: https://github.com/borntoeatt/k8s-provisioning
+    - Tools:
+        - Proxmox:
+            - abbr: PVE
+              href: https://192.168.0.110:8006/
+        - MinIO:
+            - abbr: MIO
+              href: http://192.168.0.110:9001/
+
+  # Empty docker.yaml prevents Homepage from logging "config not found"
+  # warnings even though we don't use the Docker integration.
+  docker.yaml: ""

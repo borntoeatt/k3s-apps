@@ -4,6 +4,13 @@ metadata:
   name: uptime-kuma
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web
+    # Homepage auto-discovery: any Ingress with these annotations
+    # appears as a tile under the named group on home.valhalla.lan.
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Uptime Kuma"
+    gethomepage.dev/description: "Service uptime monitor"
+    gethomepage.dev/group: "Monitoring"
+    gethomepage.dev/icon: "uptime-kuma"
 spec:
   ingressClassName: traefik
   rules:

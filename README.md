@@ -61,6 +61,7 @@ manifests/   Plain Kubernetes manifests, one folder per workload
 |---|---|---|
 | `cert-manager` | — | TLS automation for the cluster |
 | `cert-manager-issuers` | — | Self-signed `valhalla-ca` root + `valhalla-ca-issuer` ClusterIssuer |
+| `homepage` | https://home.valhalla.lan/ | Cluster dashboard with auto-discovery via Ingress annotations |
 | `sealed-secrets` | — | Encrypt secrets at rest in this git repo (controller name: `sealed-secrets-controller`) |
 | `kube-prometheus-stack` | https://grafana.valhalla.lan/ | Prometheus + Alertmanager + Grafana with prebuilt cluster dashboards |
 | `uptime-kuma` | http://uptime.valhalla.lan/ | Service uptime monitor, SQLite on Longhorn |
