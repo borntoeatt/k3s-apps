@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: uptime-kuma
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    # Pinned to main; bump targetRevision to a tag/commit for stricter
+    # change control once you start running things you actually depend on.
+    repoURL: https://github.com/borntoeatt/k3s-apps.git
+    targetRevision: main
+    path: manifests/uptime-kuma
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: uptime-kuma
+  syncPolicy:
+    automated:
+      selfHeal: true   # if someone kubectl-edits a managed resource, Argo CD reverts it
+      prune: true      # if a manifest is deleted from git, Argo CD deletes the resource
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uptime-kuma-data
+spec:
+  accessModes:
+    - ReadWriteOnce       # Longhorn RWO: single-pod attachment, fine for SQLite
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 2Gi        # Uptime Kuma's SQLite DB is tiny; 2Gi gives years of headroom
