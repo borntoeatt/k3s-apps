@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vaultwarden
+  labels:
+    app.kubernetes.io/name: vaultwarden
+spec:
+  replicas: 1
+  # Recreate, not RollingUpdate: SQLite + RWO Longhorn PVC means a second
+  # pod can't attach the volume while the old one's still running.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vaultwarden
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vaultwarden
+    spec:
+      containers:
+        - name: vaultwarden
+          image: vaultwarden/server:1.32.5-alpine
+          env:
+            # DOMAIN must match exactly what the browser sends in the Host
+            # header, including scheme and port. If this drifts from the
+            # ingress hostname, push notifications + WebSocket break.
+            - name: DOMAIN
+              value: "http://vault.valhalla.lan"
+            # Open registration. Flip to "false" after you create your own
+            # account so randoms can't sign up if you ever expose this.
+            - name: SIGNUPS_ALLOWED
+              value: "true"
+            # Modern Vaultwarden serves WebSockets on the same Rocket port,
+            # so no separate Service port. This flag enables the WS handler.
+            - name: WEBSOCKET_ENABLED
+              value: "true"
+            # Pin the listen port; defaults to 80 anyway, just being explicit.
+            - name: ROCKET_PORT
+              value: "80"
+            # ADMIN_TOKEN intentionally left unset → /admin panel disabled.
+            # Set it via a separate Secret (kubectl apply, not in git) once
+            # you actually need the admin panel. Plaintext token in a public
+            # GitOps repo would defeat the purpose.
+          ports:
+            - name: http
+              containerPort: 80
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          startupProbe:
+            httpGet:
+              path: /alive
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /alive
+              port: http
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /alive
+              port: http
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: vaultwarden-data

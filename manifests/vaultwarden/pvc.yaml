@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vaultwarden-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    # 5Gi covers the SQLite DB plus attachments (logos, file attachments
+    # to vault items) for years of single-user homelab usage. Bump if
+    # multiple users start uploading large files.
+    requests:
+      storage: 5Gi

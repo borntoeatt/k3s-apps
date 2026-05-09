@@ -54,3 +54,4 @@ manifests/   Plain Kubernetes manifests, one folder per workload
 | Name | URL | Notes |
 |---|---|---|
 | `uptime-kuma` | http://uptime.valhalla.lan/ | Service uptime monitor, SQLite on Longhorn |
+| `vaultwarden` | http://vault.valhalla.lan/ | Bitwarden-compatible password server, SQLite on Longhorn |
