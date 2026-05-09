@@ -28,7 +28,13 @@ spec:
           prometheusSpec:
             nodeSelector:
               node-role.kubernetes.io/worker: "true"
-            retention: 15d
+            # Sized to fit on 40Gi worker disks. Longhorn reserves the
+            # declared PVC size (not actual usage), and other apps already
+            # claim ~17Gi/node — leaves only ~11Gi free per node for new
+            # replicas. 10Gi here fits; 20Gi didn't. 7-day retention keeps
+            # TSDB density reasonable; bump both numbers when workers get
+            # larger disks (Terraform vm_disk_gb).
+            retention: 7d
             resources:
               requests:
                 cpu: 100m
@@ -40,14 +46,13 @@ spec:
               volumeClaimTemplate:
                 spec:
                   # Use single-replica Longhorn for prometheus TSDB.
-                  # 3-way replication costs 60Gi which doesn't fit on
-                  # 40Gi worker disks, and metrics history is rebuildable
-                  # by waiting for the next scrape cycle anyway.
+                  # 3-way replication costs 3x disk and metrics history is
+                  # rebuildable by waiting for the next scrape cycle anyway.
                   storageClassName: longhorn-1r
                   accessModes: ["ReadWriteOnce"]
                   resources:
                     requests:
-                      storage: 20Gi
+                      storage: 10Gi
             # By default the operator only watches ServiceMonitors created
             # alongside this Helm release. Setting these to false makes it
             # discover everything in the cluster — way more useful for a
