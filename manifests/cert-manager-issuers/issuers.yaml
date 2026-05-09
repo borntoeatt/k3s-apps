@@ -1,0 +1,60 @@
+# Bootstrap chain to give the cluster a self-signed CA whose root cert we
+# import into client trust stores. End result: every Ingress that asks for
+# a cert from `valhalla-ca-issuer` gets one signed by our root, and clients
+# that trust the root see green locks for *.valhalla.lan with no warnings.
+#
+# The chain has three pieces:
+#
+#   1. selfsigned-bootstrap (ClusterIssuer)
+#      A self-signing issuer used exactly once: to sign the CA's own cert.
+#
+#   2. valhalla-ca (Certificate)
+#      The CA's keypair + cert, signed by selfsigned-bootstrap. Stored in
+#      a Secret. isCA: true means certs signed by it can themselves sign.
+#
+#   3. valhalla-ca-issuer (ClusterIssuer)
+#      Wraps the Secret from step 2 as a CA-type ClusterIssuer. This is
+#      the one Ingresses reference via cert-manager.io/cluster-issuer.
+
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-bootstrap
+spec:
+  selfSigned: {}
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: valhalla-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: valhalla-ca
+  subject:
+    organizations:
+      - Valhalla Homelab
+  secretName: valhalla-ca
+  # 10-year root. cert-manager auto-renews 30 days before expiry, but
+  # rolling a CA cert is disruptive (every leaf needs to be re-issued and
+  # clients need to re-trust the new root). Long-lived root is fine for
+  # a homelab.
+  duration: 87600h0m0s
+  renewBefore: 720h0m0s
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: selfsigned-bootstrap
+    kind: ClusterIssuer
+    group: cert-manager.io
+
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: valhalla-ca-issuer
+spec:
+  ca:
+    secretName: valhalla-ca

@@ -3,9 +3,19 @@ kind: Ingress
 metadata:
   name: vaultwarden
   annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: web
+    # TLS path: enter via Traefik's HTTPS entrypoint (port 443) and ask
+    # cert-manager to provision/maintain the cert from our internal CA.
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    cert-manager.io/cluster-issuer: valhalla-ca-issuer
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - vault.valhalla.lan
+      # cert-manager creates this Secret automatically based on the
+      # cluster-issuer annotation above. Don't pre-create it; cert-manager
+      # owns its lifecycle.
+      secretName: vaultwarden-tls
   rules:
     - host: vault.valhalla.lan
       http:

@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # cert-manager has to be ready before any ClusterIssuer / Certificate
+    # can be created. Sync wave puts this Application ahead of any other
+    # that depends on cert-manager's CRDs (e.g. cert-manager-issuers).
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://charts.jetstack.io
+    chart: cert-manager
+    targetRevision: v1.16.2
+    helm:
+      values: |
+        # Install the CRDs alongside the controllers. Without this,
+        # ClusterIssuer / Certificate kinds don't exist and any later
+        # Application referencing them fails to sync.
+        crds:
+          enabled: true
+        # Run on workers only — same pattern as Longhorn. Servers stay
+        # control-plane-only.
+        nodeSelector:
+          node-role.kubernetes.io/worker: "true"
+        webhook:
+          nodeSelector:
+            node-role.kubernetes.io/worker: "true"
+        cainjector:
+          nodeSelector:
+            node-role.kubernetes.io/worker: "true"
+        startupapicheck:
+          nodeSelector:
+            node-role.kubernetes.io/worker: "true"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

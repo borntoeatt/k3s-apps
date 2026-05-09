@@ -43,6 +43,12 @@ manifests/   Plain Kubernetes manifests, one folder per workload
   on each client machine pointing the name at `192.168.0.180` (Traefik's
   MetalLB-assigned IP), or set up a wildcard `*.valhalla.lan` A record on
   your homelab DNS server.
+- **TLS** is handled by `cert-manager` against an internal CA
+  (`valhalla-ca-issuer`). New ingresses should annotate
+  `cert-manager.io/cluster-issuer: valhalla-ca-issuer` and add a `tls`
+  block — cert-manager will provision the cert automatically. Import the
+  `valhalla-ca` root cert into your client trust store once and every app
+  gets a green-lock cert.
 - **Persistent storage** uses the `longhorn` StorageClass (default on
   this cluster). PVCs without an explicit `storageClassName` get Longhorn
   automatically.
@@ -53,5 +59,7 @@ manifests/   Plain Kubernetes manifests, one folder per workload
 
 | Name | URL | Notes |
 |---|---|---|
+| `cert-manager` | — | TLS automation for the cluster |
+| `cert-manager-issuers` | — | Self-signed `valhalla-ca` root + `valhalla-ca-issuer` ClusterIssuer |
 | `uptime-kuma` | http://uptime.valhalla.lan/ | Service uptime monitor, SQLite on Longhorn |
-| `vaultwarden` | http://vault.valhalla.lan/ | Bitwarden-compatible password server, SQLite on Longhorn |
+| `vaultwarden` | https://vault.valhalla.lan/ | Bitwarden-compatible password server, SQLite on Longhorn, internal CA cert |

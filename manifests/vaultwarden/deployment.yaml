@@ -26,7 +26,7 @@ spec:
             # header, including scheme and port. If this drifts from the
             # ingress hostname, push notifications + WebSocket break.
             - name: DOMAIN
-              value: "http://vault.valhalla.lan"
+              value: "https://vault.valhalla.lan"
             # Open registration. Flip to "false" after you create your own
             # account so randoms can't sign up if you ever expose this.
             - name: SIGNUPS_ALLOWED

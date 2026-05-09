@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager-issuers
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Apply after cert-manager itself. The CRDs (ClusterIssuer, Certificate)
+    # come from the cert-manager Helm chart; this Application's resources
+    # use those CRDs, so it has to follow.
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/borntoeatt/k3s-apps.git
+    targetRevision: main
+    path: manifests/cert-manager-issuers
+  destination:
+    server: https://kubernetes.default.svc
+    # Issuer secrets live in cert-manager namespace by convention. The
+    # ClusterIssuers are cluster-scoped so the namespace is moot for them,
+    # but the CA Certificate's Secret has to live somewhere.
+    namespace: cert-manager
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    # Don't prune the bootstrap ClusterIssuer if the Application is ever
+    # deleted accidentally — losing the CA Secret means re-issuing every
+    # cert in the cluster + re-importing the new root into every client.
+    # We can revisit this once we have a backup story.
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        maxDuration: 3m
+    syncOptions:
+      - ServerSideApply=true
