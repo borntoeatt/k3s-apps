@@ -30,7 +30,7 @@ spec:
             # Open registration. Flip to "false" after you create your own
             # account so randoms can't sign up if you ever expose this.
             - name: SIGNUPS_ALLOWED
-              value: "true"
+              value: "false"
             # Modern Vaultwarden serves WebSockets on the same Rocket port,
             # so no separate Service port. This flag enables the WS handler.
             - name: WEBSOCKET_ENABLED
