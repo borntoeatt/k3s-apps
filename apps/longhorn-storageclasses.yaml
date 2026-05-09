@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: longhorn-storageclasses
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/borntoeatt/k3s-apps.git
+    targetRevision: main
+    path: manifests/longhorn-storageclasses
+  destination:
+    server: https://kubernetes.default.svc
+    # StorageClasses are cluster-scoped; the namespace is irrelevant but
+    # Argo CD requires one. Use the same namespace as Longhorn for
+    # tidiness.
+    namespace: longhorn-system
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - ServerSideApply=true

@@ -1,0 +1,29 @@
+# Single-replica Longhorn StorageClass for workloads where the data is
+# either rebuildable (Prometheus TSDB, search index caches) or already
+# replicated at the application layer (Postgres replicas, etc).
+#
+# Costs 1/3 the disk of the default `longhorn` StorageClass, at the price
+# of "if the node hosting this replica dies, you lose this PVC's data
+# until that node comes back."
+#
+# When to use:
+#   - Prometheus / metrics TSDB (rebuildable from scrape; some history loss is fine)
+#   - Test/dev workloads
+#   - Anything where you'd rather have the disk space
+#
+# When NOT to use:
+#   - Vaultwarden, Gitea, Nextcloud — anything where loss = real damage
+#   - Single-instance databases without their own backup story
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-1r
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "1"
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  fsType: "ext4"
