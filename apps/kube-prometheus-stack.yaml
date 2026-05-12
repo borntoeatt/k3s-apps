@@ -34,7 +34,7 @@ spec:
             # replicas. 10Gi here fits; 20Gi didn't. 7-day retention keeps
             # TSDB density reasonable; bump both numbers when workers get
             # larger disks (Terraform vm_disk_gb).
-            retention: 7d
+            retention: 3d
             resources:
               requests:
                 cpu: 100m
