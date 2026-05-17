@@ -5,6 +5,11 @@ cluster wired to this repo). The companion to
 [`k8s-provisioning`](https://github.com/borntoeatt/k8s-provisioning), which
 handles the platform itself (Terraform/Ansible, Argo CD, MetalLB, Longhorn).
 
+> 🔒 **This repo is private.** Argo CD on the cluster needs a credential to
+> clone it. See [Private repository access](#private-repository-access) at
+> the bottom of this README for the bootstrap procedure (one-time `kubectl
+> apply` of a `Secret` containing a fine-grained GitHub PAT).
+
 ## How it works
 
 A "root" Argo CD `Application` running in the cluster watches this repo's
@@ -227,6 +232,105 @@ silently breaks the next time a pod recycles.
 | `uptime-kuma` | (c) in-repo | http://uptime.valhalla.lan/ | Service uptime monitor, SQLite on Longhorn |
 | `vaultwarden` | (c) in-repo | https://vault.valhalla.lan/ | Bitwarden-compatible password server, SQLite on Longhorn |
 | `beleganski-jaas` | (b) external | https://alex-jaas.dporkov.tech/ | Public web app — manifests live in [borntoeatt/beleganski-jaas](https://github.com/borntoeatt/beleganski-jaas), CI bumps image tags |
+
+## Private repository access
+
+This repo is private. Argo CD needs read credentials to clone it.
+
+The credential lives in a `Secret` in the `argocd` namespace, labeled so
+Argo CD picks it up automatically as a known repository. There's a
+chicken-and-egg: if the cluster can't clone the repo, it can't pull the
+credential from the repo — so the **initial credential apply is manual**,
+done once at cluster bootstrap (or after `kubectl delete secret` style
+mistakes).
+
+### Bootstrap (one-time)
+
+1. **Generate a GitHub token** with read access to this repo only:
+   - GitHub Settings → Developer settings → Personal access tokens → **Fine-grained tokens**
+   - Repository access: only `borntoeatt/k3s-apps`
+   - Permissions: **Contents → Read-only**, **Metadata → Read-only**
+   - Set an expiration that fits your rotation policy (1 year is reasonable for homelab)
+   - Copy the `github_pat_...` token
+
+2. **Apply the credential to the cluster** (replace `<TOKEN>`):
+   ```bash
+   kubectl apply -f - <<EOF
+   apiVersion: v1
+   kind: Secret
+   metadata:
+     name: k3s-apps-repo
+     namespace: argocd
+     labels:
+       argocd.argoproj.io/secret-type: repository
+   stringData:
+     url: https://github.com/borntoeatt/k3s-apps.git
+     username: borntoeatt
+     password: <TOKEN>
+   EOF
+   ```
+
+3. **Verify Argo CD can clone:**
+   ```bash
+   kubectl -n argocd patch app apps-root --type merge \
+     -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}'
+   kubectl -n argocd get app apps-root
+   ```
+   Should show `Synced`. If you see `ComparisonError` mentioning `authentication required`, the credential isn't matching.
+
+### Token rotation
+
+When the PAT expires (or you need to rotate it):
+
+```bash
+kubectl -n argocd patch secret k3s-apps-repo \
+  -p '{"stringData":{"password":"<NEW-TOKEN>"}}'
+```
+
+Then trigger a refresh on apps-root as above. No restart needed.
+
+### Same pattern for any private app repo
+
+If you later make another app repo private (e.g. for a workload pulled via
+pattern (b) — external git repo), apply a similar `Secret` with a
+different `metadata.name`, the same label, and the credentials for that
+repo. Argo CD will look up the credential by URL match.
+
+```yaml
+# Template for any private app repo
+apiVersion: v1
+kind: Secret
+metadata:
+  name: <repo-name>-creds
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  url: https://github.com/borntoeatt/<repo-name>.git
+  username: borntoeatt
+  password: <PAT>
+```
+
+### Moving the credential into git later (optional)
+
+Once the cluster is bootstrapped, you can convert the plain `Secret` to a
+`SealedSecret` and commit it to this repo, so future cluster rebuilds
+don't need the manual `kubectl apply` step:
+
+```bash
+kubectl -n argocd get secret k3s-apps-repo -o yaml \
+  | kubeseal --controller-name=sealed-secrets-controller \
+             --controller-namespace=sealed-secrets \
+             -o yaml > manifests/argocd-secrets/k3s-apps-repo-sealed.yaml
+```
+
+Add `apps/argocd-secrets.yaml` pointing at `manifests/argocd-secrets/`,
+commit, push. The cluster decrypts the SealedSecret into the same `Secret`
+Argo CD already uses, so nothing else changes — but now the credential is
+under version control and rotation is a `kubeseal` + git push instead of a
+`kubectl patch`. Bootstrap is still manual on a brand-new cluster (the
+SealedSecret can't be applied until the cluster can clone the repo
+containing it), but recovery is one-shot.
 
 ## When apps-root won't pick up a change
 
